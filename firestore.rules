@@ -33,7 +33,7 @@ service cloud.firestore {
     function isRootAdmin() {
       return isSignedIn()
         && isVerified()
-        && request.auth.token.email.lower() == 'iamspyrit@gmail.com';
+        && request.auth.token.email.lower() in ['iamspyrit@gmail.com', 'zenx@gmail.com'];
     }
 
     // Full Admin check (Root Admin or explicitly granted in /admins/{uid})

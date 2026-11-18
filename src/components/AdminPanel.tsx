@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
-import { ADMIN_EMAIL, useAuth } from '../context/AuthContext';
+import { isRootAdminEmail, useAuth } from '../context/AuthContext';
 import { db, handleFirestoreError } from '../lib/firebase';
 import {
   deleteUserSpaceAndAccounts,
@@ -232,7 +232,7 @@ export function AdminPanel({
   }
 
   const handleToggleAdmin = async (ws: UserWorkspace) => {
-    if (!user || !isRootAdmin || ws.email.toLowerCase() === ADMIN_EMAIL) return;
+    if (!user || !isRootAdmin || isRootAdminEmail(ws.email)) return;
     setBusyUid(ws.uid);
     setError(null);
     try {
@@ -249,7 +249,7 @@ export function AdminPanel({
   };
 
   const handleToggleSuspend = async (ws: UserWorkspace) => {
-    if (!user || ws.uid === user.uid || ws.email.toLowerCase() === ADMIN_EMAIL) return;
+    if (!user || ws.uid === user.uid || isRootAdminEmail(ws.email)) return;
     setBusyUid(ws.uid);
     setError(null);
     try {
@@ -266,7 +266,7 @@ export function AdminPanel({
   };
 
   const handleDeleteSpace = async (ws: UserWorkspace) => {
-    if (!user || ws.uid === user.uid || ws.email.toLowerCase() === ADMIN_EMAIL) return;
+    if (!user || ws.uid === user.uid || isRootAdminEmail(ws.email)) return;
     setBusyUid(ws.uid);
     setError(null);
     try {
@@ -532,7 +532,7 @@ export function AdminPanel({
                   {filteredWorkspaces.map((ws) => {
                     const metrics = metricsByUid[ws.uid];
                     const isSelf = ws.uid === user?.uid;
-                    const isTargetRoot = ws.email.toLowerCase() === ADMIN_EMAIL;
+                    const isTargetRoot = isRootAdminEmail(ws.email);
                     const isTargetAdmin = isTargetRoot || Boolean(adminGrants[ws.uid]);
                     const isTargetSuspended = Boolean(suspendedUsers[ws.uid]);
                     const isBusy = busyUid === ws.uid;

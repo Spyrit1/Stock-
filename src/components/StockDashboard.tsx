@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { useAuth } from '../context/AuthContext';
+import { isRootAdminEmail, useAuth } from '../context/AuthContext';
 import { getCapeImageUrl } from '../lib/minecraftCapes';
 import {
   createAccount,
@@ -89,7 +89,16 @@ export function StockDashboard({
   onResetSpace,
   onOpenAdminPanel,
 }: StockDashboardProps) {
-  const { user, workspace, isAdmin, logout } = useAuth();
+  const {
+    user,
+    workspace,
+    isAdmin,
+    authNotice,
+    resendVerificationEmail,
+    refreshVerificationStatus,
+    clearAuthNotice,
+    logout,
+  } = useAuth();
   const [targetWorkspace, setTargetWorkspace] = useState<UserWorkspace | null>(null);
   const [accounts, setAccounts] = useState<MinecraftAccount[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
@@ -616,6 +625,43 @@ export function StockDashboard({
         </header>
 
         <main className="flex-1 p-4 sm:p-6 space-y-6 max-w-[1400px] w-full mx-auto">
+          {user && !user.emailVerified && isRootAdminEmail(user.email) && (
+            <div className="p-4 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-1">
+                <p className="font-semibold">Verify your email to activate Admin permissions</p>
+                <p className="text-xs opacity-90">
+                  {authNotice ||
+                    `Your email (${user.email}) has root admin access configured, which requires email verification (or signing in with Google).`}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={resendVerificationEmail}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 text-amber-900 dark:text-amber-100 hover:bg-amber-100 dark:hover:bg-amber-900/40 cursor-pointer whitespace-nowrap"
+                >
+                  Send Verification Email
+                </button>
+                <button
+                  type="button"
+                  onClick={refreshVerificationStatus}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-700 hover:bg-amber-800 text-white cursor-pointer whitespace-nowrap"
+                >
+                  Refresh Status
+                </button>
+                {authNotice && (
+                  <button
+                    type="button"
+                    onClick={clearAuthNotice}
+                    className="text-xs underline cursor-pointer"
+                  >
+                    Dismiss
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {dataError && (
             <div className="p-4 rounded-xl border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-200 text-sm flex items-start gap-3">
               <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />

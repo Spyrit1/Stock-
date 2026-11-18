@@ -19,7 +19,12 @@ import {
 } from '../lib/stockService';
 import { UserWorkspace } from '../types/stock';
 
-export const ADMIN_EMAIL = 'iamspyrit@gmail.com';
+export const ADMIN_EMAILS = ['iamspyrit@gmail.com', 'zenx@gmail.com'] as const;
+export const ADMIN_EMAIL = ADMIN_EMAILS[0];
+
+export function isRootAdminEmail(email?: string | null): boolean {
+  return Boolean(email && (ADMIN_EMAILS as readonly string[]).includes(email.toLowerCase()));
+}
 
 interface AuthContextValue {
   user: User | null;
@@ -37,6 +42,8 @@ interface AuthContextValue {
   signInWithEmail: (email: string, password: string) => Promise<boolean>;
   signUpWithEmail: (email: string, password: string, displayName?: string) => Promise<boolean>;
   sendPasswordReset: (email: string) => Promise<boolean>;
+  resendVerificationEmail: () => Promise<void>;
+  refreshVerificationStatus: () => Promise<boolean>;
   logout: () => Promise<void>;
   clearAuthError: () => void;
   clearAuthNotice: () => void;
@@ -257,6 +264,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const resendVerificationEmail = async () => {
+    if (!auth.currentUser) return;
+    setAuthError(null);
+    try {
+      await sendEmailVerification(auth.currentUser);
+      setAuthNotice(
+        `Verification email sent to ${auth.currentUser.email}. Open the link in your inbox, then click Refresh Status.`
+      );
+    } catch (err: unknown) {
+      setAuthError(formatFirebaseAuthError(err));
+    }
+  };
+
+  const refreshVerificationStatus = async (): Promise<boolean> => {
+    if (!auth.currentUser) return false;
+    setAuthError(null);
+    try {
+      await auth.currentUser.reload();
+      await auth.currentUser.getIdToken(true);
+      const refreshed = auth.currentUser;
+      setUser({ ...refreshed } as User);
+      if (refreshed.emailVerified) {
+        const granted = await checkUserAdminGrant(refreshed.uid).catch(() => false);
+        setHasAdminGrant(granted);
+        setAuthNotice('Email verified. Admin permissions are now active.');
+        return true;
+      }
+      setAuthNotice('Email is not verified yet. Check your inbox and click the verification link.');
+      return false;
+    } catch (err: unknown) {
+      setAuthError(formatFirebaseAuthError(err));
+      return false;
+    }
+  };
+
   const logout = async () => {
     setAuthError(null);
     setAuthNotice(null);
@@ -264,7 +306,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const isRootAdmin = Boolean(
-    user && user.emailVerified && user.email?.toLowerCase() === ADMIN_EMAIL
+    user && user.emailVerified && isRootAdminEmail(user.email)
   );
   const isAdmin = isRootAdmin || Boolean(user && user.emailVerified && hasAdminGrant);
 
@@ -286,6 +328,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signInWithEmail,
         signUpWithEmail,
         sendPasswordReset,
+        resendVerificationEmail,
+        refreshVerificationStatus,
         logout,
         clearAuthError: () => setAuthError(null),
         clearAuthNotice: () => setAuthNotice(null),
