@@ -92,6 +92,10 @@ function formatFirebaseAuthError(err: unknown): string {
   if (code === 'auth/popup-blocked' || message.includes('popup-blocked')) {
     return 'Your browser blocked the sign-in popup. Allow popups for this site and try again.';
   }
+  if (code === 'auth/unauthorized-domain' || message.includes('unauthorized-domain')) {
+    const host = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
+    return `Domain "${host}" is not authorized for Google Sign-In in Firebase Authentication. Add "${host}" under Firebase Console -> Authentication -> Settings -> Authorized domains.`;
+  }
   return message;
 }
 
