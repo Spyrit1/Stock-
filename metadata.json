@@ -1,0 +1,6 @@
+{
+  "name": "BlockVault Stock",
+  "description": "Private Minecraft account inventory and credential vault with rank filtering, isolated user stock spaces, and Firestore persistence.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

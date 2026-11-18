@@ -1,0 +1,302 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Reusable Hardened Primitives ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    // Root Admin check using verified email claim only (zero DB reads, safe for list queries)
+    function isRootAdmin() {
+      return isSignedIn()
+        && isVerified()
+        && request.auth.token.email.lower() == 'iamspyrit@gmail.com';
+    }
+
+    // Full Admin check (Root Admin or explicitly granted in /admins/{uid})
+    function isAdmin() {
+      return isRootAdmin()
+        || (isSignedIn() && isVerified() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    function isNotSuspended(userId) {
+      return !exists(/databases/$(database)/documents/suspended_users/$(userId));
+    }
+
+    function isValidTimestamp(val) {
+      return val is timestamp;
+    }
+
+    // --- Validation Blueprints (Synchronicity with firebase-blueprint.json) ---
+    function isValidUserWorkspace(data, userId) {
+      return data.keys().hasAll([
+          'uid', 'email', 'displayName', 'workspaceName', 'customRanks', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'email', 'displayName', 'workspaceName', 'customRanks', 'createdAt', 'updatedAt'
+        ])
+        && data.uid is string
+        && data.uid.size() >= 1
+        && data.uid.size() <= 128
+        && data.uid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.uid == userId
+        && data.email is string
+        && data.email.size() >= 3
+        && data.email.size() <= 254
+        && data.displayName is string
+        && data.displayName.size() >= 1
+        && data.displayName.size() <= 80
+        && data.workspaceName is string
+        && data.workspaceName.size() >= 1
+        && data.workspaceName.size() <= 64
+        && data.customRanks is list
+        && data.customRanks.size() <= 20
+        && (data.customRanks.size() == 0 || (data.customRanks[0] is string && data.customRanks[0].size() >= 1 && data.customRanks[0].size() <= 40))
+        && isValidTimestamp(data.createdAt)
+        && isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidMinecraftAccount(data, userId) {
+      return data.keys().hasAll([
+          'ownerId', 'accountName', 'rank', 'accountType', 'status',
+          'email', 'secondaryEmail', 'recoveryCode', 'secretKey', 'notes',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId', 'accountName', 'rank', 'accountType', 'status',
+          'email', 'secondaryEmail', 'recoveryCode', 'secretKey', 'password', 'capes', 'notes',
+          'createdAt', 'updatedAt'
+        ])
+        && data.ownerId is string
+        && data.ownerId.size() >= 1
+        && data.ownerId.size() <= 128
+        && data.ownerId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.ownerId == userId
+        && data.accountName is string
+        && data.accountName.size() >= 1
+        && data.accountName.size() <= 64
+        && data.accountName.matches('^[a-zA-Z0-9_\\-\\. ]+$')
+        && data.rank is string
+        && data.rank.size() >= 1
+        && data.rank.size() <= 40
+        && data.accountType in ['MFA', 'SFA', 'NFA', 'Cape', 'OG']
+        && data.status in ['available', 'reserved', 'sold', 'locked']
+        && data.email is string
+        && data.email.size() >= 3
+        && data.email.size() <= 254
+        && data.secondaryEmail is string
+        && data.secondaryEmail.size() <= 254
+        && data.recoveryCode is string
+        && data.recoveryCode.size() <= 256
+        && data.secretKey is string
+        && data.secretKey.size() <= 256
+        && (!('password' in data) || (data.password is string && data.password.size() <= 256))
+        && (!('capes' in data) || (
+          data.capes is list
+          && data.capes.size() <= 30
+          && (data.capes.size() == 0 || (data.capes[0] is string && data.capes[0].size() >= 1 && data.capes[0].size() <= 64))
+        ))
+        && data.notes is string
+        && data.notes.size() <= 500
+        && isValidTimestamp(data.createdAt)
+        && isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidAdminGrant(data, userId) {
+      return data.keys().hasAll(['uid', 'email', 'grantedBy', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'email', 'grantedBy', 'createdAt'])
+        && data.uid is string
+        && data.uid.size() >= 1
+        && data.uid.size() <= 128
+        && data.uid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.uid == userId
+        && data.email is string
+        && data.email.size() >= 3
+        && data.email.size() <= 254
+        && data.grantedBy is string
+        && data.grantedBy.size() >= 1
+        && data.grantedBy.size() <= 128
+        && data.grantedBy.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.grantedBy == request.auth.uid
+        && isValidTimestamp(data.createdAt);
+    }
+
+    function isValidSuspendedUser(data, userId) {
+      return data.keys().hasAll(['uid', 'email', 'suspendedBy', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'email', 'suspendedBy', 'createdAt'])
+        && data.uid is string
+        && data.uid.size() >= 1
+        && data.uid.size() <= 128
+        && data.uid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.uid == userId
+        && data.email is string
+        && data.email.size() >= 3
+        && data.email.size() <= 254
+        && data.suspendedBy is string
+        && data.suspendedBy.size() >= 1
+        && data.suspendedBy.size() <= 128
+        && data.suspendedBy.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.suspendedBy == request.auth.uid
+        && isValidTimestamp(data.createdAt);
+    }
+
+    // --- Trusted Admin Grants ---
+    match /admins/{userId} {
+      allow get: if isSignedIn()
+        && isVerified()
+        && isValidId(userId)
+        && (userId == request.auth.uid || isAdmin());
+
+      allow list: if isRootAdmin();
+
+      allow create: if isRootAdmin()
+        && isValidId(userId)
+        && isValidAdminGrant(incoming(), userId)
+        && incoming().createdAt == request.time;
+
+      allow update: if false;
+
+      allow delete: if isRootAdmin()
+        && isValidId(userId)
+        && userId != request.auth.uid;
+    }
+
+    // --- User Space Suspension Registry ---
+    match /suspended_users/{userId} {
+      allow get: if isSignedIn()
+        && isValidId(userId)
+        && (userId == request.auth.uid || isAdmin());
+
+      allow list: if isRootAdmin();
+
+      allow create: if isAdmin()
+        && isValidId(userId)
+        && userId != request.auth.uid
+        && isValidSuspendedUser(incoming(), userId)
+        && incoming().createdAt == request.time;
+
+      allow update: if false;
+
+      allow delete: if isAdmin()
+        && isValidId(userId);
+    }
+
+    // --- Collection Rules ---
+    match /users/{userId} {
+      allow get: if isSignedIn()
+        && isValidId(userId)
+        && (
+          isAdmin()
+          || (userId == request.auth.uid && (resource == null || existing().uid == request.auth.uid))
+        );
+
+      allow list: if isRootAdmin();
+
+      allow create: if isSignedIn()
+        && isValidId(userId)
+        && (userId == request.auth.uid || isAdmin())
+        && isValidUserWorkspace(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isSignedIn()
+        && isValidId(userId)
+        && (isAdmin() || (userId == request.auth.uid && isNotSuspended(userId)))
+        && existing().uid == userId
+        && isValidUserWorkspace(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().email == existing().email
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'workspaceName', 'customRanks', 'updatedAt'])
+        );
+
+      allow delete: if isAdmin()
+        && isValidId(userId)
+        && userId != request.auth.uid;
+
+      // Isolated Minecraft Accounts Stock Space per User
+      match /accounts/{accountId} {
+        allow get: if isSignedIn()
+          && isValidId(userId)
+          && isValidId(accountId)
+          && (
+            isAdmin()
+            || (userId == request.auth.uid && existing().ownerId == request.auth.uid)
+          );
+
+        allow list: if isSignedIn()
+          && (
+            isRootAdmin()
+            || (userId == request.auth.uid && existing().ownerId == request.auth.uid)
+          );
+
+        allow create: if isSignedIn()
+          && isValidId(userId)
+          && isValidId(accountId)
+          && (isAdmin() || (userId == request.auth.uid && isNotSuspended(userId)))
+          && ('password' in incoming())
+          && ('capes' in incoming())
+          && isValidMinecraftAccount(incoming(), userId)
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId));
+
+        allow update: if isSignedIn()
+          && isValidId(userId)
+          && isValidId(accountId)
+          && (isAdmin() || (userId == request.auth.uid && isNotSuspended(userId)))
+          && existing().ownerId == userId
+          && isValidMinecraftAccount(incoming(), userId)
+          && incoming().ownerId == existing().ownerId
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && (
+            isAdmin()
+            ||
+            // Action: Quick Status Change
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+            ||
+            // Action: Full Account Stock Edit
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'accountName', 'rank', 'accountType', 'status',
+              'email', 'secondaryEmail', 'recoveryCode', 'secretKey', 'password', 'capes', 'notes', 'updatedAt'
+            ])
+          );
+
+        allow delete: if isSignedIn()
+          && isValidId(userId)
+          && isValidId(accountId)
+          && (
+            isAdmin()
+            || (userId == request.auth.uid && isNotSuspended(userId) && existing().ownerId == request.auth.uid)
+          );
+      }
+    }
+  }
+}

@@ -1,0 +1,247 @@
+{
+  "entities": {
+    "UserWorkspace": {
+      "title": "UserWorkspace",
+      "description": "Isolated personal stock workspace profile and custom rank configuration for an authenticated user.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the workspace owner.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Verified account email of the workspace owner.",
+          "minLength": 3,
+          "maxLength": 254
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name for the workspace owner.",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "workspaceName": {
+          "type": "string",
+          "description": "User-defined label for their isolated stock space.",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "customRanks": {
+          "type": "array",
+          "description": "Bounded list of custom Minecraft rank filters created by the user (max 20 items, each 1..40 chars)."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the workspace was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the workspace was last updated."
+        }
+      },
+      "required": [
+        "uid",
+        "email",
+        "displayName",
+        "workspaceName",
+        "customRanks",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "MinecraftAccount": {
+      "title": "MinecraftAccount",
+      "description": "A single Minecraft account inventory record stored in the user's isolated stock space.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the user who owns this account stock record.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "accountName": {
+          "type": "string",
+          "description": "Minecraft IGN or account label.",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-\\. ]+$"
+        },
+        "rank": {
+          "type": "string",
+          "description": "Minecraft server or account rank used for quick filtering.",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "accountType": {
+          "type": "string",
+          "description": "Account access classification.",
+          "enum": ["MFA", "SFA", "NFA", "Cape", "OG"]
+        },
+        "status": {
+          "type": "string",
+          "description": "Current inventory status of the account.",
+          "enum": ["available", "reserved", "sold", "locked"]
+        },
+        "email": {
+          "type": "string",
+          "description": "Primary Microsoft/Mojang login email.",
+          "minLength": 3,
+          "maxLength": 254
+        },
+        "secondaryEmail": {
+          "type": "string",
+          "description": "Secondary or recovery email address.",
+          "minLength": 0,
+          "maxLength": 254
+        },
+        "recoveryCode": {
+          "type": "string",
+          "description": "Microsoft recovery code.",
+          "minLength": 0,
+          "maxLength": 256
+        },
+        "secretKey": {
+          "type": "string",
+          "description": "2FA TOTP secret key or security key.",
+          "minLength": 0,
+          "maxLength": 256
+        },
+        "password": {
+          "type": "string",
+          "description": "Account login password.",
+          "minLength": 0,
+          "maxLength": 256
+        },
+        "capes": {
+          "type": "array",
+          "description": "Bounded list of Minecraft cape names associated with the account (max 30 items, each 1..64 chars)."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional notes on capes, bans, or transfer details.",
+          "minLength": 0,
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the account record was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the account record was last updated."
+        }
+      },
+      "required": [
+        "ownerId",
+        "accountName",
+        "rank",
+        "accountType",
+        "status",
+        "email",
+        "secondaryEmail",
+        "recoveryCode",
+        "secretKey",
+        "notes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AdminGrant": {
+      "title": "AdminGrant",
+      "description": "Trusted admin role assignment granted by the root administrator (iamspyrit@gmail.com).",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 254
+        },
+        "grantedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "grantedBy", "createdAt"]
+    },
+    "SuspendedUser": {
+      "title": "SuspendedUser",
+      "description": "Suspension marker preventing non-admin writes on a user's stock space.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 254
+        },
+        "suspendedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "suspendedBy", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserWorkspace"
+      },
+      "description": "Private workspace document per authenticated user. Isolated to request.auth.uid == userId or verified admin (iamspyrit@gmail.com)."
+    },
+    "/users/{userId}/accounts/{accountId}": {
+      "schema": {
+        "$ref": "#/entities/MinecraftAccount"
+      },
+      "description": "Private subcollection storing a user's Minecraft accounts stock. Accessible to owner or verified admin (iamspyrit@gmail.com)."
+    },
+    "/admins/{userId}": {
+      "schema": {
+        "$ref": "#/entities/AdminGrant"
+      },
+      "description": "Trusted admin grant documents managed strictly by root admin (iamspyrit@gmail.com)."
+    },
+    "/suspended_users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/SuspendedUser"
+      },
+      "description": "Suspended user markers managed strictly by verified admins."
+    }
+  }
+}
